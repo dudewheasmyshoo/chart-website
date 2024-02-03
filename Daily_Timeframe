@@ -1,0 +1,62 @@
+import pandas as pd
+from datetime import datetime, timedelta
+from lightweight_charts import chart
+
+#Function to generate file path
+def get_file_path(date, symbol):
+  date_str = date.strftime('%Y-%m-%d')
+  return f'{stockdata.csv}'
+
+#Function to read stock data from a file
+def read_stock_data(file_path, symbol):
+  try:
+    df = pd.read_csv(file_path)
+    # polygon daily csv contain multiple symbols so you need to filter it out
+    df = df[df['T'] == symbol]
+    if df.empty: 
+      return pd.DataFrame()
+    # convert unix time in 't' column to datetime, assume it's in milliseconds
+    df['t'] = pd.to_datetime(df['t'], unite='ms', utc=True)
+    df.rename(columns={
+      'T': 'ticker', 'v': 'volume', 'o': 'open', 'c': 'close',
+      'h': 'high', 'l': 'low', 't': 'date'}, inplace=True)
+    df_out = df[['date', 'open', 'high', 'low', 'close', 'volume']]
+    return df_out
+  except FileNotFoundError:
+    return pd.Dataframe()
+
+def get_data_for_window(symbol, year, month, day):
+  central_date = datetime(year, month, day)
+  data_frames = []
+
+  #Start looking for data a certain amount of days before / after the day you choose. You want to see what happens on the daily timeframe before/after
+  start_date = central_date - timedelta(days=90)
+  end_date = central_date + timedelta(days=30)
+
+  current_date = start_date
+  while current_date <= end_date:
+    file_path = get_file_path(current_date, symbol)
+    df = read_stock_data(file_path, symbol)
+
+    if df is not None and not df.empty:
+      data_frames.append(df)
+
+    current_date += timedelta(days=1) 
+
+  return pd.concat(data_frames) if data_frames else pd.DataFrame()
+
+if __name__ == '__main__':
+  symbol = 'SYMBOL'
+  year = 2020
+  month = 1
+  day = 1
+
+  df_out = get_data_for_window(symbol, year, month, day)
+
+if not df_out.empty:
+  chart = Chart(toolbox=True)
+  chart.legend(True)
+  chart.set(df_out)
+  chart.show(block=True)
+else:
+  print(f"No data available for {symbol} around the date {year}-{month:02d}-{day:02d}.")
